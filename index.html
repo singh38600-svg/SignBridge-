@@ -17,9 +17,9 @@
 </head>
 <body>
     <h1>SignBridge MVP</h1>
-    <h2 id="status" style="color: #d32f2f;">Starting camera & loading model...</h2>
+    <h2 id="status" style="color: #d32f2f;">Starting camera...</h2>
     
-    <video id="video" style="display: none;" autoplay playsinline></video>
+    <video id="video" style="display: none;" autoplay playsinline muted></video>
     <canvas id="canvas" width="640" height="480"></canvas>
     
     <div class="prediction-box">
@@ -35,18 +35,25 @@
         let sequenceBuffer = [];
 
         async function init() {
-            // 1. START CAMERA FIRST
             try {
                 const video = document.getElementById('video');
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
                 video.srcObject = stream;
-                document.getElementById('status').innerText = "Camera Ready! Loading AI Model...";
+                
+                // FORCE PLAY for mobile browsers
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                document.getElementById('status').innerText = "Camera Live! Loading AI Model...";
             } catch (e) {
                 document.getElementById('status').innerText = "Camera Error: " + e.message;
                 return;
             }
 
-            // 2. SETUP MEDIAPIPE
             const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/${file}` });
             holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
             holistic.onResults(onResults);
@@ -60,7 +67,6 @@
             };
             processFrame();
 
-            // 3. LOAD MODEL (Show error if it fails)
             try {
                 model = await tf.loadLayersModel('./model.json');
                 document.getElementById('status').innerText = "Model Ready! Sign to the camera.";
