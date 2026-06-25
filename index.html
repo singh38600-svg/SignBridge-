@@ -31,6 +31,7 @@
         const SEQUENCE_LENGTH = 30;
         let model = null;
         let sequenceBuffer = [];
+        let isPredicting = false; // Prevents freezing!
 
         function setStatus(msg, color = "#d32f2f") {
             document.getElementById('status').innerText = msg;
@@ -104,8 +105,10 @@
             sequenceBuffer.push(landmarks);
             if (sequenceBuffer.length > SEQUENCE_LENGTH) sequenceBuffer.shift();
 
-            if (sequenceBuffer.length === SEQUENCE_LENGTH && model) {
-                predictSign(sequenceBuffer);
+            // THROTTLE: Only predict if we have 30 frames AND the previous prediction is finished!
+            if (sequenceBuffer.length === SEQUENCE_LENGTH && model && !isPredicting) {
+                isPredicting = true;
+                predictSign([...sequenceBuffer]); // Send a copy of the buffer
             }
         }
 
@@ -118,7 +121,7 @@
                 const maxIndex = data.indexOf(Math.max(...data));
                 const maxConfidence = data[maxIndex];
                 
-                if (maxConfidence > 0.5) { 
+                if (maxConfidence > 0.4) { // Lowered threshold so it guesses easier
                     document.getElementById('prediction').innerText = SIGNS[maxIndex] || 'Unknown';
                     document.getElementById('confidence').innerText = (maxConfidence * 100).toFixed(2) + '%';
                 }
@@ -127,6 +130,8 @@
                 prediction.dispose();
             } catch (err) {
                 console.error(err);
+            } finally {
+                isPredicting = false; // Unlock for the next prediction
             }
         }
         init();
