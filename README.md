@@ -33,6 +33,36 @@ Training Environment: Google Colab (Python, TensorFlow/Keras, OpenCV)
 Data Source: Kaggle Indian Sign Language Video Dataset (3,630 videos, 61 signs)
 Hosting: Vercel (PWA)
 
+🔧 The Build Process: An Engineering Case Study
+This project was uniquely challenging because it was developed entirely via a mobile phone environment, requiring creative problem-solving to bypass hardware limitations.
+
+Phase 1: Data Pipeline (Google Colab + Kaggle API)
+
+Accessed a cloud supercomputer (Google Colab) via a mobile browser to download a 3.2GB dataset of 3,630 ISL videos from Kaggle.
+Built a custom Python pipeline using OpenCV and MediaPipe to extract 126-dimensional hand landmarks from every video, converting heavy video files into lightweight NumPy arrays.
+Constraint Solved: Colab's free tier disconnects after ~90 minutes. To prevent losing 2.5 hours of processing time, I engineered a chunked-saving system that backed up progress to Google Drive every 50 videos, allowing seamless resuming.
+Phase 2: Model Training & Keras 3 Bug
+
+Architected a Bi-LSTM neural network in TensorFlow to classify the 30-frame temporal sequences into 61 sign categories.
+Constraint Solved: Google Colab upgraded to Keras 3, which broke the tensorflowjs_converter (it stripped the InputLayer shape, crashing the browser). I solved this by rolling back to Legacy Keras (tf-keras) to successfully export the model for the web.
+
+Phase 3: Edge Deployment & Mobile Optimization
+
+Deployed the model as a Progressive Web App (PWA) using TensorFlow.js so inference runs 100% client-side.
+Constraint Solved: Initial versions caused mobile browsers to freeze because the CPU was trying to run MediaPipe tracking and AI predictions 30 times a second. I optimized this by switching from MediaPipe Holistic (533 points) to MediaPipe Hands (42 points) and implementing an isPredicting lock to throttle predictions and keep the video feed smooth.
+
+Phase 4: Hosting
+
+Connected the GitHub repository to Vercel for continuous deployment and global CDN hosting, resulting in a zero-cost, production-ready web app.
+Why this is powerful for your resume:
+If you just write "I trained a model," it sounds like a school project. But when you write about "engineering a chunked-saving system to bypass Colab timeouts" and "implementing an isPredicting lock to throttle predictions," you sound like a Senior AI Engineer who knows how to ship products in the real world.
+
+Put this in your README, and recruiters will be incredibly impressed!
+
+
+Send a Message
+
+
 🧠 How It Works (The AI Pipeline)
 Instead of processing heavy raw video pixels, the app uses a lightweight 3-step pipeline:
 
