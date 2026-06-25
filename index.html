@@ -9,71 +9,79 @@
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
         h1 { color: #0d47a1; }
-        canvas { width: 100%; max-width: 640px; border: 4px solid #0d47a1; transform: scaleX(-1); border-radius: 8px; }
+        #canvas { width: 100%; max-width: 640px; border: 4px solid #0d47a1; border-radius: 8px; }
         .prediction-box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 640px; margin: 20px auto; }
         .sign { font-size: 2em; font-weight: bold; color: #2e7d32; }
-        .conf { font-size: 1.2em; color: #555; }
     </style>
 </head>
 <body>
     <h1>SignBridge MVP</h1>
-    <h2 id="status" style="color: #d32f2f;">Starting camera...</h2>
+    <h2 id="status" style="color: #d32f2f;">Initializing...</h2>
     
-    <video id="video" style="display: none;" autoplay playsinline muted></video>
+    <!-- FIX: Video is 1px instead of hidden so mobile browsers don't freeze it -->
+    <video id="video" style="width: 1px; height: 1px; position: absolute; left: -9999px;" autoplay playsinline muted></video>
     <canvas id="canvas" width="640" height="480"></canvas>
     
     <div class="prediction-box">
         <div>Prediction: <span id="prediction" class="sign">None</span></div>
-        <div class="conf">Confidence: <span id="confidence">0%</span></div>
+        <div>Confidence: <span id="confidence">0%</span></div>
     </div>
 
     <script>
         const SIGNS = ['Bear', 'Break', 'Brinjal', 'Budget', 'Busy', 'Cabbage', 'Carrot', 'Cauliflower', 'Chilli', 'Clean', 'Close', 'Come', 'Cook', 'Crocodile', 'Cry', 'Cucumber', 'Deer', 'Drink', 'Elephant', 'Exam', 'Fedup', 'Fever', 'Giraffe', 'Give', 'Good Morning', 'Good afternoon', 'Hello', 'Hug', 'Injury', 'Interview', 'Jump', 'Karnataka', 'Key', 'Knife', 'Lemon', 'Lion', 'Man', 'Maths', 'Maybe', 'Monkey', 'Onion', 'Peacock', 'Pigeon', 'Pour', 'Radish', 'Sample Videos', 'Sparrow', 'Still', 'Switch', 'Tea', 'Temple', 'Thank you', 'Tiger', 'Turtle', 'Umbrella', 'Uncle', 'Vegetables', 'Volcano', 'What is your Name', 'Wife', 'Writer', 'Wrong'];
-        
         const SEQUENCE_LENGTH = 30;
         let model = null;
         let sequenceBuffer = [];
+        let holistic = null;
+
+        function setStatus(msg, color = "#d32f2f") {
+            document.getElementById('status').innerText = msg;
+            document.getElementById('status').style.color = color;
+        }
 
         async function init() {
             try {
+                setStatus("1. Requesting camera access...");
                 const video = document.getElementById('video');
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
                 video.srcObject = stream;
                 
-                // FORCE PLAY for mobile browsers
                 await new Promise((resolve) => {
                     video.onloadedmetadata = () => {
-                        video.play();
-                        resolve();
+                        video.play().then(resolve);
                     };
                 });
-
-                document.getElementById('status').innerText = "Camera Live! Loading AI Model...";
+                setStatus("2. Camera ready! Loading AI Model...", "#f57c00");
             } catch (e) {
-                document.getElementById('status').innerText = "Camera Error: " + e.message;
+                setStatus("Camera Error: " + e.message, "#d32f2f");
                 return;
             }
 
-            const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/${file}` });
-            holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-            holistic.onResults(onResults);
-
-            const video = document.getElementById('video');
-            const processFrame = async () => {
-                if (video.readyState >= 2) {
-                    await holistic.send({ image: video });
-                }
-                requestAnimationFrame(processFrame);
-            };
-            processFrame();
-
             try {
                 model = await tf.loadLayersModel('./model.json');
-                document.getElementById('status').innerText = "Model Ready! Sign to the camera.";
-                document.getElementById('status').style.color = "#2e7d32";
+                setStatus("3. Model loaded! Starting MediaPipe...", "#f57c00");
             } catch (err) {
-                document.getElementById('status').innerText = "Error loading model. Check files!";
+                setStatus("Model Load Failed! Did you upload model.json & .bin to GitHub?", "#d32f2f");
                 console.error("Model Load Error:", err);
+                return;
+            }
+
+            try {
+                holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/${file}` });
+                holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+                holistic.onResults(onResults);
+
+                const video = document.getElementById('video');
+                const processFrame = async () => {
+                    if (video.readyState >= 2) {
+                        await holistic.send({ image: video });
+                    }
+                    requestAnimationFrame(processFrame);
+                };
+                processFrame();
+                setStatus("4. App Ready! Sign to the camera.", "#2e7d32");
+            } catch (e) {
+                setStatus("MediaPipe Error: " + e.message, "#d32f2f");
             }
         }
 
@@ -82,7 +90,12 @@
             const ctx = canvas.getContext('2d');
             ctx.save();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the video feed mirrored
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
             ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
 
             const extractHand = (hand) => {
                 if (!hand) return Array(63).fill(0);
@@ -99,7 +112,6 @@
             if (sequenceBuffer.length === SEQUENCE_LENGTH && model) {
                 predictSign(sequenceBuffer);
             }
-            ctx.restore();
         }
 
         async function predictSign(sequence) {
