@@ -17,7 +17,7 @@
 </head>
 <body>
     <h1>SignBridge MVP</h1>
-    <h2 id="status" style="color: #d32f2f;">Loading AI Model...</h2>
+    <h2 id="status" style="color: #d32f2f;">Starting camera & loading model...</h2>
     
     <video id="video" style="display: none;" autoplay playsinline></video>
     <canvas id="canvas" width="640" height="480"></canvas>
@@ -28,7 +28,6 @@
     </div>
 
     <script>
-        // Your 61 signs
         const SIGNS = ['Bear', 'Break', 'Brinjal', 'Budget', 'Busy', 'Cabbage', 'Carrot', 'Cauliflower', 'Chilli', 'Clean', 'Close', 'Come', 'Cook', 'Crocodile', 'Cry', 'Cucumber', 'Deer', 'Drink', 'Elephant', 'Exam', 'Fedup', 'Fever', 'Giraffe', 'Give', 'Good Morning', 'Good afternoon', 'Hello', 'Hug', 'Injury', 'Interview', 'Jump', 'Karnataka', 'Key', 'Knife', 'Lemon', 'Lion', 'Man', 'Maths', 'Maybe', 'Monkey', 'Onion', 'Peacock', 'Pigeon', 'Pour', 'Radish', 'Sample Videos', 'Sparrow', 'Still', 'Switch', 'Tea', 'Temple', 'Thank you', 'Tiger', 'Turtle', 'Umbrella', 'Uncle', 'Vegetables', 'Volcano', 'What is your Name', 'Wife', 'Writer', 'Wrong'];
         
         const SEQUENCE_LENGTH = 30;
@@ -36,21 +35,23 @@
         let sequenceBuffer = [];
 
         async function init() {
-            // Load Model directly from the same GitHub folder
-            model = await tf.loadLayersModel('./model.json');
-            document.getElementById('status').innerText = "Model Ready! Sign to the camera.";
-            document.getElementById('status').style.color = "#2e7d32";
+            // 1. START CAMERA FIRST
+            try {
+                const video = document.getElementById('video');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+                video.srcObject = stream;
+                document.getElementById('status').innerText = "Camera Ready! Loading AI Model...";
+            } catch (e) {
+                document.getElementById('status').innerText = "Camera Error: " + e.message;
+                return;
+            }
 
-            // Setup MediaPipe
+            // 2. SETUP MEDIAPIPE
             const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/${file}` });
             holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
             holistic.onResults(onResults);
 
-            // Setup Camera
             const video = document.getElementById('video');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
-            video.srcObject = stream;
-            
             const processFrame = async () => {
                 if (video.readyState >= 2) {
                     await holistic.send({ image: video });
@@ -58,6 +59,16 @@
                 requestAnimationFrame(processFrame);
             };
             processFrame();
+
+            // 3. LOAD MODEL (Show error if it fails)
+            try {
+                model = await tf.loadLayersModel('./model.json');
+                document.getElementById('status').innerText = "Model Ready! Sign to the camera.";
+                document.getElementById('status').style.color = "#2e7d32";
+            } catch (err) {
+                document.getElementById('status').innerText = "Error loading model. Check files!";
+                console.error("Model Load Error:", err);
+            }
         }
 
         function onResults(results) {
@@ -108,4 +119,4 @@
         init();
     </script>
 </body>
-                                                                  </html>
+</html>
