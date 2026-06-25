@@ -61,7 +61,7 @@
                 model = await tf.loadLayersModel('./model.json');
                 setStatus("3. Model loaded! Starting MediaPipe...", "#f57c00");
             } catch (err) {
-                setStatus("Model Load Failed! Did you upload model.json & .bin to GitHub?", "#d32f2f");
+                setStatus("Model Error: " + err.message, "#d32f2f");
                 console.error("Model Load Error:", err);
                 return;
             }
