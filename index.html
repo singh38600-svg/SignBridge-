@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SignBridge MVP</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/holistic.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
         h1 { color: #0d47a1; }
@@ -18,7 +18,6 @@
     <h1>SignBridge MVP</h1>
     <h2 id="status" style="color: #d32f2f;">Initializing...</h2>
     
-    <!-- FIX: Video is 1px instead of hidden so mobile browsers don't freeze it -->
     <video id="video" style="width: 1px; height: 1px; position: absolute; left: -9999px;" autoplay playsinline muted></video>
     <canvas id="canvas" width="640" height="480"></canvas>
     
@@ -32,7 +31,6 @@
         const SEQUENCE_LENGTH = 30;
         let model = null;
         let sequenceBuffer = [];
-        let holistic = null;
 
         function setStatus(msg, color = "#d32f2f") {
             document.getElementById('status').innerText = msg;
@@ -62,13 +60,12 @@
                 setStatus("3. Model loaded! Starting MediaPipe...", "#f57c00");
             } catch (err) {
                 setStatus("Model Error: " + err.message, "#d32f2f");
-                console.error("Model Load Error:", err);
                 return;
             }
 
             try {
-                holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675669374/${file}` });
-                holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+                const holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}` });
+                holistic.setOptions({ modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
                 holistic.onResults(onResults);
 
                 const video = document.getElementById('video');
@@ -90,11 +87,9 @@
             const ctx = canvas.getContext('2d');
             ctx.save();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw the video feed mirrored
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(results.image, 0,0, canvas.width, canvas.height);
             ctx.restore();
 
             const extractHand = (hand) => {
